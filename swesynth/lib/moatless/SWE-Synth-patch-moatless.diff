@@ -1,0 +1,346 @@
+diff --git a/moatless/benchmark/evaluation.py b/moatless/benchmark/evaluation.py
+index 68dc98c..aefcef3 100644
+--- a/moatless/benchmark/evaluation.py
++++ b/moatless/benchmark/evaluation.py
+@@ -110,10 +110,10 @@ class Evaluation:
+         self.retry_state = retry_state
+ 
+         if not os.path.exists(self.trajectory_dir):
+-            os.makedirs(self.trajectory_dir)
++            os.makedirs(self.trajectory_dir, exist_ok=True)
+ 
+         if not os.path.exists(self.logs_dir):
+-            os.makedirs(self.logs_dir)
++            os.makedirs(self.logs_dir, exist_ok=True)
+ 
+         if litellm_callback:
+             litellm.success_callback = [litellm_callback]
+@@ -195,7 +195,7 @@ class Evaluation:
+         trajectory_path = os.path.join(self.trajectory_dir, f"{instance_id}.json")
+         prompt_log_dir = os.path.join(self.logs_dir, f"{instance_id}")
+         if not os.path.exists(prompt_log_dir):
+-            os.makedirs(prompt_log_dir)
++            os.makedirs(prompt_log_dir, exist_ok=True)
+ 
+         if os.path.exists(trajectory_path) and not retry:
+             with open(trajectory_path) as file:
+@@ -251,6 +251,9 @@ class Evaluation:
+             info["error"] = traceback.format_exc()
+             info["status"] = "error"
+             logging.exception(f"Error in evaluation of {instance['instance_id']} ")
++            import shutil
++            shutil.rmtree(repo_dir)
++            raise e
+ 
+         info["duration"] = time.time() - start_time
+         info["total_cost"] = loop.trajectory.total_cost()
+@@ -266,7 +269,12 @@ class Evaluation:
+ 
+         info["submission"] = output.stdout
+         loop.trajectory.save_info(info)
+-        return loop.trajectory.to_dict()
++        res = loop.trajectory.to_dict()
++
++        import shutil
++        shutil.rmtree(repo_dir)
++
++        return res
+ 
+     def _process_instance(self, instance):
+         trajectory = self._evaluate_instance(instance)
+@@ -279,7 +287,7 @@ class Evaluation:
+         try:
+             md_report = generate_md_report(trajectory, instance)
+             if not os.path.exists(f"{self.evaluation_dir}/reports"):
+-                os.makedirs(f"{self.evaluation_dir}/reports")
++                os.makedirs(f"{self.evaluation_dir}/reports", exist_ok=True)
+             with open(
+                 f"{self.evaluation_dir}/reports/{instance['instance_id']}.md",
+                 "w",
+@@ -311,7 +319,7 @@ class Evaluation:
+             try:
+                 md_report = generate_md_report(trajectory, instance)
+                 if not os.path.exists(f"{self.evaluation_dir}/reports"):
+-                    os.makedirs(f"{self.evaluation_dir}/reports")
++                    os.makedirs(f"{self.evaluation_dir}/reports", exist_ok=True)
+                 with open(
+                     f"{self.evaluation_dir}/reports/{instance['instance_id']}.md",
+                     "w",
+@@ -518,7 +526,7 @@ class Evaluation:
+             print("Evaluting a single instance")
+             sub_dir = os.path.join(self.evaluation_dir, "preds")
+             if not os.path.exists(sub_dir):
+-                os.makedirs(sub_dir)
++                os.makedirs(sub_dir, exist_ok=True)
+             self.predictions_path = f"{sub_dir}/{instances[0]['instance_id']}.jsonl"
+             if os.path.exists(self.predictions_path) and os.path.getsize(self.predictions_path) > 0:
+                 print(f"Instance {instances[0]['instance_id']} already evaluated, skipping")
+diff --git a/moatless/benchmark/swebench/utils.py b/moatless/benchmark/swebench/utils.py
+index 12a604e..0a3a323 100644
+--- a/moatless/benchmark/swebench/utils.py
++++ b/moatless/benchmark/swebench/utils.py
+@@ -35,9 +35,14 @@ def sorted_instances(
+     split: str = "test",
+     sort_by: str = "created_at",
+ ):
+-    data = load_dataset(dataset_name, split=split)
++    if dataset_name.endswith(".parquet"):
++        data = load_dataset("parquet", data_files={"dev": dataset_name}, split="dev")
++    else:
++        # data = load_dataset(dataset_name, split=split)
++        from datasets import load_from_disk
++        data = load_from_disk(dataset_name)[split]
+     instances = list(data)
+-    instances = sorted(instances, key=lambda x: x[sort_by])
++    # instances = sorted(instances, key=lambda x: x[sort_by])
+     return instances
+ 
+ 
+@@ -295,16 +300,49 @@ def setup_swebench_repo(instance_data: dict, repo_base_dir: str = "/tmp/repos",
+         "pytest",
+         "scikit-learn",
+         "sphinx",
+-        "sympy"
++        "sympy",
++
++        # dev
++        "pvlib-python",
++        "pydicom",
++        "sqlfluff",
++        "astroid",
++        "pyvista",
++        "marshmallow",
+     }
+     github_repo_path = f"swe-train/{repo_dir_name}"
+     for repo in swebench_repos:
+         if repo in repo_dir_name:
+             github_repo_path = f"swe-bench/{repo_dir_name}"
+             break
++
++    bugsinpy_repos = {
++        'ansible/ansible',
++        'psf/black',
++        'cookiecutter/cookiecutter',
++        'tiangolo/fastapi',
++        'jakubroztocil/httpie',
++        'keras-team/keras',
++        'spotify/luigi',
++        'matplotlib/matplotlib',
++        'pandas-dev/pandas',
++        'cool-RR/PySnooper',
++        'huge-success/sanic',
++        'scrapy/scrapy',
++        'explosion/spaCy',
++        'nvbn/thefuck',
++        'tornadoweb/tornado',
++        'tqdm/tqdm',
++        'ytdl-org/youtube-dl'
++    }
++    if instance_data["repo"] in bugsinpy_repos:
++        # keep the repo path as is
++        github_repo_path = repo_dir_name
++        
+     return setup_github_repo(
+         repo=github_repo_path,
+         base_commit=instance_data["base_commit"],
++        test_patch=instance_data["test_patch"],
+         base_dir=repo_base_dir,
+     )
+ 
+diff --git a/moatless/index/embed_model.py b/moatless/index/embed_model.py
+index 24f34a2..b8638ab 100644
+--- a/moatless/index/embed_model.py
++++ b/moatless/index/embed_model.py
+@@ -1,6 +1,38 @@
+ import os
+ 
+ from llama_index.core.base.embeddings.base import BaseEmbedding
++from llama_index.embeddings.huggingface import HuggingFaceEmbedding
++from tenacity import retry, wait_random_exponential, stop_after_attempt
++from voyageai.error import InvalidRequestError
++from typing import List
++from llama_index.embeddings.text_embeddings_inference import (
++    TextEmbeddingsInference,
++)
++import random
++
++class HuggingFaceEmbeddingWithRetry(HuggingFaceEmbedding):
++    @retry(
++        wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(6)
++    )
++    def _get_embedding(self, texts: List[str], input_type: str) -> List[List[float]]:
++        try:
++            return self._client.embed(
++                texts,
++                model=self.model_name,
++                input_type=input_type,
++                truncation=self.truncation,
++            ).embeddings
++        except InvalidRequestError as e:
++            if "Please lower the number of tokens in the batch" in str(e):
++                if len(texts) < 10:
++                    raise  # If batch size is already less than 10 we expect batchs to be abnormaly large and raise the error
++                mid = len(texts) // 2
++                first_half = texts[:mid]
++                second_half = texts[mid:]
++                embeddings_first = self._get_embedding(first_half, input_type)
++                embeddings_second = self._get_embedding(second_half, input_type)
++                return embeddings_first + embeddings_second
++            raise
+ 
+ 
+ def get_embed_model(model_name: str) -> BaseEmbedding:
+@@ -24,12 +56,11 @@ def get_embed_model(model_name: str) -> BaseEmbedding:
+             embed_batch_size=50,
+         )
+     else:
+-        # Assumes OpenAI otherwise
+-        try:
+-            from llama_index.embeddings.openai import OpenAIEmbedding
+-        except ImportError:
+-            raise ImportError(
+-                "llama-index-embeddings-openai is not installed. Please install it using `pip install llama-index-embeddings-openai`"
+-            )
++        endpoints: list[str] = os.environ.get("SWESYNTH_MOATLESS_EMBEDDING_ENDPOINT", 'http://localhost:15272').split(',')
++        return TextEmbeddingsInference(
++            base_url=random.choice(endpoints),
++            model_name=model_name,  # required for formatting inference text,
++            timeout=120,  # timeout in seconds
++            embed_batch_size=128,  # batch size for embedding
++        )
+ 
+-        return OpenAIEmbedding(model_name=model_name)
+diff --git a/moatless/index/simple_faiss.py b/moatless/index/simple_faiss.py
+index c50b08a..eac415c 100644
+--- a/moatless/index/simple_faiss.py
++++ b/moatless/index/simple_faiss.py
+@@ -231,7 +231,7 @@ class SimpleFaissVectorStore(BasePydanticVectorStore):
+         import faiss
+ 
+         if not os.path.exists(persist_dir):
+-            os.makedirs(persist_dir)
++            os.makedirs(persist_dir, exist_ok=True)
+ 
+         logger.info(f"Deleting {len(self._vector_ids_to_delete)} vectors from index.")
+ 
+diff --git a/moatless/utils/repo.py b/moatless/utils/repo.py
+index 99acc8a..71f46af 100644
+--- a/moatless/utils/repo.py
++++ b/moatless/utils/repo.py
+@@ -1,21 +1,42 @@
+ import logging
+ import os
+ import subprocess
++import tempfile
++from git import Repo
++from pathlib import Path
+ 
+ logger = logging.getLogger(__name__)
+ 
+ 
+-def setup_github_repo(repo: str, base_commit: str, base_dir: str = "/tmp/repos") -> str:
++def setup_github_repo(repo: str, base_commit: str, test_patch: str, base_dir: str = "/tmp/repos") -> str:
++    repo = repo.split('/')[-1]
+     repo_name = get_repo_dir_name(repo)
+-    repo_url = f"https://github.com/{repo}.git"
++
++    if os.environ.get('SWESYNTH_REPO_DIR'):
++        repo_url = str(Path(os.environ['SWESYNTH_REPO_DIR'])  / repo_name.split('/')[-1])
++    else:
++        repo_url = f"https://github.com/{repo}.git"
+ 
+     path = f"{base_dir}/{repo_name}"
+     if not os.path.exists(path):
+-        os.makedirs(path)
++        os.makedirs(path, exist_ok=True)
+         logger.info(f"Directory '{path}' was created.")
+     maybe_clone(repo_url, path)
+     checkout_commit(path, base_commit)
+ 
++    if test_patch.strip():
++        with tempfile.NamedTemporaryFile(mode='w', suffix='.patch', delete=False) as patch_file:
++            patch_file.write(test_patch)
++            patch_file_path = patch_file.name
++        
++        repo = Repo(path)
++        # Apply the patch
++        repo.git.apply(patch_file_path)
++        # commit the changes
++        repo.git.add('.')
++        repo.git.commit('-m', 'Apply test patch')
++        Path(patch_file_path).unlink()
++
+     return path
+ 
+ 
+diff --git a/moatless/utils/tokenizer.py b/moatless/utils/tokenizer.py
+index f4f24b5..ddd56e5 100644
+--- a/moatless/utils/tokenizer.py
++++ b/moatless/utils/tokenizer.py
+@@ -41,6 +41,11 @@ def count_tokens(content: str, model: str = "gpt-3.5-turbo") -> int:
+                 "_static/tiktoken_cache",
+             )
+ 
++        if model == "jinaai/jina-embeddings-v2-base-code":
++            tiktoken.model.MODEL_TO_ENCODING.update({
++                "jinaai/jina-embeddings-v2-base-code": "cl100k_base"
++            })
++
+         _enc = tiktoken.encoding_for_model(model)
+ 
+         if should_revert:
+diff --git a/moatless/workspace.py b/moatless/workspace.py
+index 5ab4e57..3528c8d 100644
+--- a/moatless/workspace.py
++++ b/moatless/workspace.py
+@@ -38,6 +38,10 @@ class Workspace:
+         max_file_context_tokens=4000,
+     ):
+         file_repo = FileRepository(repo_dir)
++        index_settings = IndexSettings(
++            embed_model="jinaai/jina-embeddings-v2-base-code",
++            dimensions=768,
++        )
+         if index_dir:
+             try:
+                 # load the cached version if it exists
+@@ -45,9 +49,6 @@ class Workspace:
+                     index_dir, file_repo=file_repo, max_results=max_results
+                 )
+             except ValueError:
+-                index_settings = IndexSettings(
+-                    embed_model="voyage-code-2",
+-                    )
+                 code_index = CodeIndex(file_repo=file_repo, settings=index_settings)
+                 code_index.run_ingestion()
+                 code_index.persist(index_dir)
+diff --git a/scripts/single_sampling.py b/scripts/single_sampling.py
+index 92a67ba..7a999db 100644
+--- a/scripts/single_sampling.py
++++ b/scripts/single_sampling.py
+@@ -1,5 +1,6 @@
+ import os
+ import json
++import git
+ 
+ os.environ["VOYAGE_API_KEY"] = "<VOYAGE_API>"
+ os.environ["OPENAI_API_KEY"] = (
+@@ -48,7 +49,8 @@ if __name__ == "__main__":
+     parser.add_argument("--eval_dir", type=str)
+     parser.add_argument("--eval_name", type=str)
+     parser.add_argument("--dataset", type=str)
+-    parser.add_argument("--split", type=str)
++    parser.add_argument("--split", type=str, default="dev")
++    parser.add_argument("--repo_base_dir", type=str, required=True)
+     args = parser.parse_args()
+     # Convert args to a dictionary and unpack into individual variables
+     config = vars(args)
+@@ -112,7 +114,7 @@ if __name__ == "__main__":
+     predictions_path = f"{evaluation_dir}/all_preds.jsonl"
+ 
+     if not os.path.exists(trajectory_dir):
+-        os.makedirs(trajectory_dir)
++        os.makedirs(trajectory_dir, exist_ok=True)
+ 
+     print(evaluation_dir)
+     with open(f"{evaluation_dir}/args.json", "w") as f:

@@ -1,0 +1,87 @@
+{
+    "swesynth-same_instances_comparison_cap1": {
+        "file_name": "swesynth-same_instances_comparison_cap1.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+    "swesynth-same_instances_comparison_cap2": {
+        "file_name": "swesynth-same_instances_comparison_cap2.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+    "swesynth-same_instances_comparison_cap3": {
+        "file_name": "swesynth-same_instances_comparison_cap3.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+
+    "swegym-lite-same_instances_comparison_cap1": {
+        "file_name": "swegym-lite-same_instances_comparison_cap1.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+    "swegym-lite-same_instances_comparison_cap2": {
+        "file_name": "swegym-lite-same_instances_comparison_cap2.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+    "swegym-lite-same_instances_comparison_cap3": {
+        "file_name": "swegym-lite-same_instances_comparison_cap3.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    }
+}

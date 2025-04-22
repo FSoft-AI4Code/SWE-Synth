@@ -1,0 +1,13 @@
+swebench==2.1.7
+langchain>=0.3
+langchain-community>=0.3
+langchain_openai
+langchain_together
+loguru
+zstandard
+torch_ppr
+ruamel.yaml<0.18.0
+numpy
+simple_parsing
+rich_argparse
+astor

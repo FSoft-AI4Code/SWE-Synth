@@ -1,0 +1,54 @@
+diff --git a/src/llamafactory/extras/constants.py b/src/llamafactory/extras/constants.py
+index 39b02cf4..d9c06dc3 100644
+--- a/src/llamafactory/extras/constants.py
++++ b/src/llamafactory/extras/constants.py
+@@ -42,6 +42,7 @@ FILEEXT2TYPE = {
+     "csv": "csv",
+     "json": "json",
+     "jsonl": "json",
++    "zst": "json",
+     "parquet": "parquet",
+     "txt": "text",
+ }
+@@ -94,7 +95,7 @@ SUPPORTED_CLASS_FOR_BLOCK_DIAG_ATTN = {
+     "starcoder2",
+ }
+ 
+-SUPPORTED_CLASS_FOR_S2ATTN = {"llama"}
++SUPPORTED_CLASS_FOR_S2ATTN = {"llama", "qwen", "qwen2"}
+ 
+ VIDEO_PLACEHOLDER = os.environ.get("VIDEO_PLACEHOLDER", "<video>")
+ 
+diff --git a/src/llamafactory/model/model_utils/longlora.py b/src/llamafactory/model/model_utils/longlora.py
+index 96a7b40e..0fec6b67 100644
+--- a/src/llamafactory/model/model_utils/longlora.py
++++ b/src/llamafactory/model/model_utils/longlora.py
+@@ -31,6 +31,7 @@ from transformers.models.llama.modeling_llama import (
+     apply_rotary_pos_emb,
+     repeat_kv,
+ )
++from transformers.models.qwen2.modeling_qwen2 import Qwen2Attention, Qwen2FlashAttention2, Qwen2SdpaAttention
+ from transformers.utils.versions import require_version
+ 
+ from ...extras import logging
+@@ -358,6 +359,11 @@ def _apply_llama_patch() -> None:
+     LlamaFlashAttention2.forward = llama_flash_attention_2_forward
+     LlamaSdpaAttention.forward = llama_sdpa_attention_forward
+ 
++def _apply_qwen_patch() -> None:
++    require_version("transformers>=4.41.2,<=4.46.1", "To fix: pip install transformers>=4.41.2,<=4.46.1")
++    Qwen2Attention.forward = llama_attention_forward
++    Qwen2FlashAttention2.forward = llama_flash_attention_2_forward
++    Qwen2SdpaAttention.forward = llama_sdpa_attention_forward
+ 
+ def configure_longlora(config: "PretrainedConfig", model_args: "ModelArguments", is_trainable: bool) -> None:
+     if not is_trainable or not model_args.shift_attn:
+@@ -368,6 +374,7 @@ def configure_longlora(config: "PretrainedConfig", model_args: "ModelArguments",
+     if getattr(config, "model_type", None) in SUPPORTED_CLASS_FOR_S2ATTN:
+         setattr(config, "group_size_ratio", 0.25)
+         _apply_llama_patch()
++        _apply_qwen_patch()
+         logger.info_rank0("Using shift short attention with group_size_ratio=1/4.")
+     else:
+-        logger.warning_rank0("Current model does not support shift short attention.")
++        logger.warning_rank0(f"Current model does not support shift short attention. {getattr(config, 'model_type', None)}")

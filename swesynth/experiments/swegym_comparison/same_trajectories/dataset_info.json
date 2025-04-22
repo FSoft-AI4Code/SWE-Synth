@@ -1,0 +1,30 @@
+{
+    "swegym-lite-cap30": {
+        "file_name": "swegym-lite-1k-traj.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    },
+    "swegym-mutant-1k": {
+        "file_name": "swesynth-1k-traj.jsonl.zst",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system"
+        }
+    }
+}
